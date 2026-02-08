@@ -13,9 +13,11 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+    "runtime"
 
 	"github.com/cockroachdb/errors"
 	"github.com/google/go-containerregistry/pkg/crane"
+    v1 "github.com/google/go-containerregistry/pkg/v1"
 	"golang.org/x/sys/unix"
 
 	"github.com/cozystack/boot-to-talos/internal/types"
@@ -50,6 +52,14 @@ func setupTransportWithProxy() http.RoundTripper {
 	return transport
 }
 
+// currentPlatform returns the platform matching the running system.
+func currentPlatform() *v1.Platform {
+    return &v1.Platform{
+        OS:          "linux",
+        Architecture: runtime.GOARCH,
+    }
+}
+
 // containerPullTimeout is the maximum time allowed for pulling a container image.
 const containerPullTimeout = 30 * time.Minute
 
@@ -81,8 +91,13 @@ func (s *ContainerSource) extractUKIFromImage() (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), containerPullTimeout)
 	defer cancel()
 
-	transport := setupTransportWithProxy()
-	img, err := crane.Pull(s.ref, crane.WithTransport(transport), crane.WithContext(ctx))
+    transport := setupTransportWithProxy()
+    img, err := crane.Pull(
+        s.ref,
+        crane.WithTransport(transport),
+        crane.WithContext(ctx),
+        crane.WithPlatform(currentPlatform()),
+    )
 	if err != nil {
 		return errors.Wrapf(err, "pull image %s", s.ref)
 	}
@@ -198,8 +213,13 @@ func (s *ContainerSource) GetInstallAssets(tmpDir string, _ uint64) (*types.Inst
 	ctx, cancel := context.WithTimeout(context.Background(), containerPullTimeout)
 	defer cancel()
 
-	transport := setupTransportWithProxy()
-	img, err := crane.Pull(s.ref, crane.WithTransport(transport), crane.WithContext(ctx))
+    transport := setupTransportWithProxy()
+    img, err := crane.Pull(
+        s.ref,
+        crane.WithTransport(transport),
+        crane.WithContext(ctx),
+        crane.WithPlatform(currentPlatform()),
+    )
 	if err != nil {
 		return nil, errors.Wrapf(err, "pull image %s", s.ref)
 	}
